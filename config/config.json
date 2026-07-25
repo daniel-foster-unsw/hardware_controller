@@ -1,0 +1,16 @@
+{
+    "application": {
+        "name": "Scanner Controller",
+        "version": "0.1.0"
+    },
+    "communication": {
+        "transport": "mock"
+    },
+    "motors": {
+        "count": 5
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/hardware_controller.log"
+    }
+}
