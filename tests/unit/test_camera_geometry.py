@@ -7,7 +7,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from src.scanner.enums.camera_id import CameraID
-from src.scanner.models.camera_geometry import (
+from src.configuration.scanner.camera_geometry import (
     CameraGeometry,
 )
 
