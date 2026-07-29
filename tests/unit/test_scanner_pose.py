@@ -10,6 +10,8 @@ from src.scanner.models.scanner_pose import (
     ScannerPose,
 )
 
+from src.scanner.enums.camera_id import CameraID
+
 
 def create_scanner_pose() -> ScannerPose:
     """
@@ -104,3 +106,53 @@ def test_pose_is_hashable() -> None:
         create_scanner_pose()
         in poses
     )
+
+
+    def test_camera_z_position() -> None:
+        """
+        Camera Z positions can be queried.
+        """
+
+        pose = create_scanner_pose()
+
+        assert (
+            pose.camera_z_position(
+                CameraID.CAM01,
+            )
+            == 320.0
+        )
+
+        assert (
+            pose.camera_z_position(
+                CameraID.CAM02,
+            )
+            == 315.0
+        )
+
+        assert (
+            pose.camera_z_position(
+                CameraID.CAM04,
+            )
+            == 305.0
+        )
+
+        assert (
+            pose.camera_z_position(
+                CameraID.CAM05,
+            )
+            == 295.0
+        )
+
+
+    def test_camera3_has_no_vertical_axis() -> None:
+        """
+        Camera 3 does not have a movable vertical axis.
+        """
+
+        pose = create_scanner_pose()
+
+        with pytest.raises(KeyError):
+
+            pose.camera_z_position(
+                CameraID.CAM03,
+            )

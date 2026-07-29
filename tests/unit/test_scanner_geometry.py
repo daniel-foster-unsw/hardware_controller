@@ -5,7 +5,7 @@ Unit tests for ScannerGeometry.
 import pytest
 
 from src.scanner.enums.camera_id import CameraID
-from src.configuration.scanner.scanner_geometry_factory import (
+from src.scanner.factories.scanner_geometry_factory import (
     create_scanner_geometry,
 )
 

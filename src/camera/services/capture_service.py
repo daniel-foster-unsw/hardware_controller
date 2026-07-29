@@ -30,7 +30,7 @@ class CaptureService(ABC):
         """
 
     @abstractmethod
-    def capture_possition(
+    def capture_position(
         self,
         context: ScanContext,
     ) -> CaptureRecord:
@@ -46,3 +46,15 @@ class CaptureService(ABC):
         """
         Shutdown cameras.
         """
+
+    def add_capture(
+        self,
+        capture: CaptureRecord,
+    ) -> None:
+        """
+        Add a capture to the scan log.
+        """
+
+        self.log.add_capture(
+            capture,
+        )

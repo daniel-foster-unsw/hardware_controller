@@ -3,10 +3,10 @@ Scanner geometry factory.
 """
 
 from src.scanner.enums.camera_id import CameraID
-from src.configuration.scanner.camera_geometry import (
+from src.scanner.models.camera_geometry import (
     CameraGeometry,
 )
-from src.configuration.scanner.scanner_geometry import (
+from src.scanner.models.scanner_geometry import (
     ScannerGeometry,
 )
 

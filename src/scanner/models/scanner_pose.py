@@ -4,6 +4,8 @@ Scanner pose.
 
 from dataclasses import dataclass
 
+from src.scanner.enums.camera_id import CameraID
+
 
 @dataclass(
     frozen=True,
@@ -24,7 +26,7 @@ class ScannerPose:
     # Vertical
     #
 
-    camera1_z_mm: floatW
+    camera1_z_mm: float
 
     camera2_z_mm: float
 
@@ -55,3 +57,40 @@ class ScannerPose:
             sum(self.vertical_positions)
             / len(self.vertical_positions)
         )
+
+    def camera_z_position(
+        self,
+        camera_id: CameraID,
+    ) -> float:
+        """
+        Return the Z position for the specified camera.
+
+        Raises:
+            KeyError: If the camera does not have a movable
+                vertical axis.
+        """
+
+        lookup = {
+
+            CameraID.CAM01:
+                self.camera1_z_mm,
+
+            CameraID.CAM02:
+                self.camera2_z_mm,
+
+            CameraID.CAM04:
+                self.camera4_z_mm,
+
+            CameraID.CAM05:
+                self.camera5_z_mm,
+        }
+
+        try:
+
+            return lookup[camera_id]
+
+        except KeyError as error:
+
+            raise KeyError(
+                f"{camera_id.name} does not have a movable vertical axis."
+            ) from error
