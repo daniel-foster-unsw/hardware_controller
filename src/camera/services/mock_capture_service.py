@@ -145,3 +145,21 @@ class MockCaptureService(CaptureService):
     ) -> None:
 
         self._initialised = False
+
+
+
+    @property
+    def image_count(self) -> int:
+        """
+        Return the number of captured images.
+        """
+
+        return sum(
+
+            capture.camera_count
+
+            for capture
+
+            in self._captures
+
+        )
