@@ -16,6 +16,9 @@ from src.scan.models.scan_context import (
 from src.scanner.services.motion_service import (
     MotionService,
 )
+from src.scan.engine.scan_runner import (
+    ScanRunner,
+)
 
 
 class ScanEngine:
@@ -29,6 +32,7 @@ class ScanEngine:
         motion_service: MotionService,
         capture_service: CaptureService,
         download_service: DownloadService,
+        runner: ScanRunner | None = None,
     ) -> None:
         """
         Initialise the scan engine.
@@ -42,6 +46,12 @@ class ScanEngine:
 
         self._download = download_service
 
+        self._runner = (
+            runner
+            if runner is not None
+            else ScanRunner()
+        )
+        
     @property
     def context(
         self,
@@ -57,69 +67,19 @@ class ScanEngine:
         Execute a scan.
         """
 
-        #
-        # Initialise services.
-        #
-
-        self._motion.initialise(
-            self._context,
+        self._runner.run(
+            context=self._context,
+            motion=self._motion,
+            capture=self._capture,
+            download=self._download,
         )
 
-        self._capture.initialise(
-            self._context,
-        )
 
-        #
-        # Home the scanner.
-        #
+    def stop(self) -> None:
+        """
+        Stop the current scan.
+        """
 
-        self._motion.home(
-            self._context,
-        )
-
-        #
-        # Execute scan positions.
-        #
-
-        for position in (
-            self._context.session.position_generator
-        ):
-
-            self._motion.move_to(
-                self._context,
-                position,
-            )
-
-            self._motion.wait_until_complete(
-                self._context,
-            )
-
-            self._context.add_capture(
-
-                self._capture.capture_position(
-                    self._context,
-                )
-
-            )
-
-            
-
-        #
-        # Download images.
-        #
-
-        self._download.download(
-            self._context,
-        )
-
-        #
-        # Shutdown services.
-        #
-
-        self._capture.shutdown(
-            self._context,
-        )
-
-        self._motion.shutdown(
+        self._motion.stop(
             self._context,
         )
