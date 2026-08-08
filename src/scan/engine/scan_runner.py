@@ -4,21 +4,35 @@ Scan execution runner.
 
 from __future__ import annotations
 
+from threading import Event
+
 from src.camera.services.capture_service import (
     CaptureService,
 )
+
 from src.camera.services.download_service import (
     DownloadService,
 )
+
 from src.scan.models.scan_context import (
     ScanContext,
 )
+
 from src.scanner.services.motion_service import (
     MotionService,
 )
 
 
+class ScanAborted(Exception):
+    """
+    Raised when a scan is requested to stop.
+    """
+
+
 class ScanRunner:
+    """
+    Executes the individual stages of a scan.
+    """
 
     def run(
         self,
@@ -26,74 +40,124 @@ class ScanRunner:
         motion: MotionService,
         capture: CaptureService,
         download: DownloadService,
+        stop_event: Event | None = None,
     ) -> None:
         """
         Execute a complete scan.
+
+        The optional stop event allows the scan manager
+        to request termination between scan operations.
         """
 
-        #
-        # Initialise services.
-        #
+        if stop_event is None:
 
-        motion.initialise(
-            context,
-        )
+            stop_event = Event()
 
-        capture.initialise(
-            context,
-        )
+        try:
 
-        #
-        # Home the scanner.
-        #
+            #
+            # Initialise services.
+            #
 
-        motion.home(
-            context,
-        )
-
-        #
-        # Execute scan positions.
-        #
-
-        for position in (
-            context.session.position_generator
-        ):
-
-            motion.move_to(
-                context,
-                position,
+            self._check_stop(
+                stop_event,
             )
 
-            motion.wait_until_complete(
+            motion.initialise(
                 context,
             )
 
-            capture_record = (
-                capture.capture_position(
+            capture.initialise(
+                context,
+            )
+
+            #
+            # Home the scanner.
+            #
+
+            self._check_stop(
+                stop_event,
+            )
+
+            motion.home(
+                context,
+            )
+
+            #
+            # Execute scan positions.
+            #
+
+            for position in (
+                context.session.position_generator
+            ):
+
+                self._check_stop(
+                    stop_event,
+                )
+
+                motion.move_to(
+                    context,
+                    position,
+                )
+
+                self._check_stop(
+                    stop_event,
+                )
+
+                motion.wait_until_complete(
                     context,
                 )
+
+                self._check_stop(
+                    stop_event,
+                )
+
+                capture_record = (
+                    capture.capture_position(
+                        context,
+                    )
+                )
+
+                context.add_capture(
+                    capture_record,
+                )
+
+            #
+            # Download images.
+            #
+
+            self._check_stop(
+                stop_event,
             )
 
-            context.add_capture(
-                capture_record,
+            download.download(
+                context,
             )
 
-        #
-        # Download images.
-        #
+        finally:
 
-        download.download(
-            context,
-        )
+            #
+            # Always shut down the services.
+            #
 
-        #
-        # Shutdown services.
-        #
+            capture.shutdown(
+                context,
+            )
 
-        capture.shutdown(
-            context,
-        )
+            motion.shutdown(
+                context,
+            )
 
-        motion.shutdown(
-            context,
-        )
+    @staticmethod
+    def _check_stop(
+        stop_event: Event,
+    ) -> None:
+        """
+        Raise ScanAborted if a stop was requested.
+        """
+
+        if stop_event.is_set():
+
+            raise ScanAborted(
+                "Scan was aborted."
+            )

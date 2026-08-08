@@ -4,8 +4,15 @@ Mock motion service.
 
 from __future__ import annotations
 
-from src.scan.models.scan_context import ScanContext
-from src.scanner.services.motion_service import MotionService
+from threading import Event
+
+from src.scan.models.scan_context import (
+    ScanContext,
+)
+
+from src.scanner.services.motion_service import (
+    MotionService,
+)
 
 
 class MockMotionService(MotionService):
@@ -13,7 +20,7 @@ class MockMotionService(MotionService):
     Mock implementation of MotionService.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, block_motion: bool = False) -> None:
 
         self._initialised = False
 
@@ -22,6 +29,18 @@ class MockMotionService(MotionService):
         self._current_position = 0.0
 
         self._visited_positions: list[float] = []
+
+        #
+        # Synchronisation
+        #
+
+        self.started_event = Event()
+
+        self.release_event = Event()
+
+        self.stopped = False
+
+        self._block_motion = block_motion
 
     @property
     def initialised(self) -> bool:
@@ -88,6 +107,14 @@ class MockMotionService(MotionService):
         Move to a scan position.
         """
 
+        self.started_event.set()
+
+        if self._block_motion:
+            self.release_event.wait()
+
+        if self.stopped:
+            return
+
         self._current_position = position_mm
 
         self._visited_positions.append(
@@ -99,8 +126,11 @@ class MockMotionService(MotionService):
         context: ScanContext,
     ) -> None:
         """
-        Motion is instantaneous in the mock.
+        Wait for the mock motion operation to complete.
         """
+
+        if self._block_motion:
+            self.release_event.wait()
 
     def stop(
         self,
@@ -109,6 +139,10 @@ class MockMotionService(MotionService):
         """
         Stop the scanner.
         """
+
+        self.stopped = True
+
+        self.release_event.set()
 
     def shutdown(
         self,

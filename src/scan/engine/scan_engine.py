@@ -4,20 +4,26 @@ Scan engine.
 
 from __future__ import annotations
 
+from threading import Event
+
 from src.camera.services.capture_service import (
     CaptureService,
 )
+
 from src.camera.services.download_service import (
     DownloadService,
 )
+
+from src.scan.engine.scan_runner import (
+    ScanRunner,
+)
+
 from src.scan.models.scan_context import (
     ScanContext,
 )
+
 from src.scanner.services.motion_service import (
     MotionService,
-)
-from src.scan.engine.scan_runner import (
-    ScanRunner,
 )
 
 
@@ -51,7 +57,7 @@ class ScanEngine:
             if runner is not None
             else ScanRunner()
         )
-        
+
     @property
     def context(
         self,
@@ -62,7 +68,10 @@ class ScanEngine:
 
         return self._context
 
-    def execute(self) -> None:
+    def execute(
+        self,
+        stop_event: Event | None = None,
+    ) -> None:
         """
         Execute a scan.
         """
@@ -72,12 +81,12 @@ class ScanEngine:
             motion=self._motion,
             capture=self._capture,
             download=self._download,
+            stop_event=stop_event,
         )
-
 
     def stop(self) -> None:
         """
-        Stop the current scan.
+        Request the motion system to stop.
         """
 
         self._motion.stop(
