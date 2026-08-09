@@ -2,7 +2,7 @@
 Application entry point.
 """
 
-from application import Application
+from src.application import Application
 
 
 def main():

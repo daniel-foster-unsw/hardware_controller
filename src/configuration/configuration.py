@@ -15,5 +15,8 @@ class Configuration:
 
         self.motor_count = 0
 
+        self.scanner_host = ""
+        self.scanner_port = 0
+
         self.log_level = ""
         self.log_file = ""
