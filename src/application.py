@@ -2,7 +2,7 @@
 Main application class.
 """
 
-from time import time
+import time
 
 from src.camera.services.mock_capture_service import (
     MockCaptureService,
