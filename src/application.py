@@ -2,6 +2,8 @@
 Main application class.
 """
 
+from time import time
+
 from src.camera.services.mock_capture_service import (
     MockCaptureService,
 )
@@ -276,6 +278,22 @@ class Application:
         self.logger.info(
             "Application running."
         )
+
+        try:
+
+            while self.scanner_server.running:
+
+                time.sleep(0.5)
+
+        except KeyboardInterrupt:
+
+            self.logger.info(
+                "Shutdown requested."
+            )
+
+
+
+
 
     def shutdown(self) -> None:
         """Shutdown the application."""
