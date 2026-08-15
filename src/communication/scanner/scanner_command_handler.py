@@ -88,9 +88,7 @@ class ScannerCommandHandler:
 
             if request.command == ScannerCommand.CREATE_SCAN:
 
-                return self._handle_create_scan(
-                    request,
-                )
+                return self._handle_create_scan(request)
 
             if request.command == ScannerCommand.START_SCAN:
 
