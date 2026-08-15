@@ -13,9 +13,9 @@ def start_server(response):
     """Start a simple local camera server."""
 
     server = socket.socket(
-            socket.AF_INET,
-            socket.SOCK_STREAM,
-        )
+        socket.AF_INET,
+        socket.SOCK_STREAM,
+    )
 
     server.setsockopt(
         socket.SOL_SOCKET,
@@ -47,7 +47,8 @@ def start_server(response):
 
             request = reader.readline()
 
-            assert request
+            if not request:
+                return
 
             writer.write(
                 json.dumps(response)
