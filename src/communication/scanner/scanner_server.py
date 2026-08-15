@@ -33,6 +33,7 @@ class ScannerServer:
         host: str,
         port: int,
         command_handler: ScannerCommandHandler,
+        logger,
     ) -> None:
 
         self._logger = logger
@@ -379,7 +380,7 @@ class ScannerServer:
                     ":",
                 ),
             )
-            
+
             self._logger.info(
                 "Sending JSON: %s",
                 response_json,
