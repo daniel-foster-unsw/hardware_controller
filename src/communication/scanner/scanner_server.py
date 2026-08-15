@@ -311,7 +311,8 @@ class ScannerServer:
         """
 
         try:
-
+            self.logger.info("Processing JSON Request")
+            self.logger.info(message)
             request_data = json.loads(
                 message,
             )

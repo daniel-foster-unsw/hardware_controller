@@ -11,6 +11,8 @@ class ScannerCommand(Enum):
     PING = "PING"
 
     GET_STATUS = "GET_STATUS"
+    
+    HOME = "HOME"
 
     CREATE_SCAN = "CREATE_SCAN"
 
