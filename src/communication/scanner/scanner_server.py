@@ -305,10 +305,7 @@ class ScannerServer:
 
             client_socket.close()
 
-    def _handle_request(
-        self,
-        message: str,
-    ) -> str:
+    def _handle_request( self, message: str) -> str:
         """
         Process one JSON request.
         """
@@ -335,8 +332,8 @@ class ScannerServer:
                 "version":
                     response.version,
 
-                "success":
-                    response.success,
+                "status":
+                    response.status,
 
                 "message":
                     response.message,
@@ -357,8 +354,12 @@ class ScannerServer:
 
             response_data = {
                 "version": "1.0",
-                "success": False,
-                "message": str(exception),
+
+                "status": "ERROR",
+
+                "message":
+                    str(exception),
+
                 "data": None,
             }
 

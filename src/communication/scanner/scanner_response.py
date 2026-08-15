@@ -2,6 +2,8 @@
 Scanner API response model.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,7 +16,7 @@ class ScannerResponse:
 
     version: str
 
-    success: bool
+    status: str
 
     message: str
 
@@ -33,7 +35,7 @@ class ScannerResponse:
 
         return cls(
             version=version,
-            success=True,
+            status="OK",
             message=message,
             data=data,
         )
@@ -51,7 +53,7 @@ class ScannerResponse:
 
         return cls(
             version=version,
-            success=False,
+            status="ERROR",
             message=message,
             data=data,
         )
