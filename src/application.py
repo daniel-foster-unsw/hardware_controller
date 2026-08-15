@@ -224,6 +224,7 @@ class Application:
                     command_handler=(
                         self.scanner_command_handler
                     ),
+                    logger=self.logger,
                 )
             )
 
