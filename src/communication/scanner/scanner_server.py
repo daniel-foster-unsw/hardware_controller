@@ -351,13 +351,23 @@ class ScannerServer:
                     response.data,
             }
 
-            return json.dumps(
+            response_json = json.dumps(
                 response_data,
                 separators=(
                     ",",
                     ":",
                 ),
             )
+            
+            self._logger.info(
+                "Sending JSON: %s",
+                response_json,
+            )
+            
+
+
+
+            return response_json
         
 
         except Exception as exception:
@@ -381,7 +391,7 @@ class ScannerServer:
                 ),
             )
 
-            self._logger.info(
+            self._logger.warning(
                 "Sending JSON: %s",
                 response_json,
             )
