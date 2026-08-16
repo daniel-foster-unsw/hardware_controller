@@ -22,6 +22,12 @@ class ScannerResponse:
 
     data: dict[str, Any] | None = None
 
+    @property
+    def success(self) -> bool:
+        """Return whether the response was successful."""
+
+        return self.status == "OK"
+
     @classmethod
     def success_response(
         cls,

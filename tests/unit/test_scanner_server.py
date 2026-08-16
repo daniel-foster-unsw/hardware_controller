@@ -1,6 +1,8 @@
 import json
 import socket
 
+from unittest.mock import MagicMock
+
 from src.camera.services.mock_capture_service import (
     MockCaptureService,
 )
@@ -27,6 +29,7 @@ from tests.helpers.scan_engine_factory import (
 
 
 def create_server():
+    """Create a scanner server for testing."""
 
     fixture = create_scan_engine()
 
@@ -40,10 +43,13 @@ def create_server():
         download_service=fixture.download,
     )
 
+    logger = MagicMock()
+
     server = ScannerServer(
         host="127.0.0.1",
         port=0,
         command_handler=handler,
+        logger=logger,
     )
 
     return server, manager, fixture
