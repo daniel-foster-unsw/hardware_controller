@@ -48,7 +48,7 @@ class CameraCaptureService(CaptureService):
 
     def __init__(
         self,
-        cameras: dict,
+        cameras,
         port: int = DEFAULT_PORT,
         client_factory: Callable[
             [str, int],
@@ -61,13 +61,13 @@ class CameraCaptureService(CaptureService):
         Parameters
         ----------
         cameras:
-            Mapping of camera names to camera configuration.
+            Camera configuration loaded from config.json.
 
-            Example:
-                {
-                    "CAM01": CameraConfiguration(...),
-                    "CAM02": CameraConfiguration(...),
-                }
+            Each camera configuration contains:
+
+                enabled
+                host
+                port
 
         port:
             Default camera controller TCP port.
@@ -119,7 +119,7 @@ class CameraCaptureService(CaptureService):
         CameraClient,
     ]:
         """
-        Return the configured camera clients.
+        Return the connected camera clients.
 
         The returned dictionary is a copy.
         """
@@ -134,6 +134,10 @@ class CameraCaptureService(CaptureService):
     ) -> None:
         """
         Connect to and initialise the enabled cameras.
+
+        A camera that cannot connect or does not respond
+        within the CameraClient socket timeout is skipped.
+        The next enabled camera is then attempted.
         """
 
         if self._initialised:
@@ -145,45 +149,43 @@ class CameraCaptureService(CaptureService):
             context.configuration.enabled_cameras
         )
 
-        try:
+        for camera_number in enabled_cameras:
 
-            for camera_number in enabled_cameras:
+            camera_id = CameraID(
+                camera_number,
+            )
 
-                camera_id = CameraID(
-                    camera_number,
+            camera_config = (
+                self._cameras.get(
+                    camera_id.name,
+                )
+            )
+
+            if camera_config is None:
+
+                raise ValueError(
+                    "No configuration found for "
+                    f"{camera_id.name}."
                 )
 
-                camera_config = (
-                    self._cameras.get(
-                        camera_id.name,
-                    )
+            if not camera_config.enabled:
+
+                continue
+
+            host = camera_config.host
+
+            if not host:
+
+                raise ValueError(
+                    "No host configured for "
+                    f"{camera_id.name}."
                 )
 
-                if camera_config is None:
+            port = camera_config.port
 
-                    raise ValueError(
-                        "No configuration found for "
-                        f"{camera_id.name}."
-                    )
+            client = None
 
-                if not camera_config.enabled:
-
-                    continue
-
-                host = camera_config.host
-
-                if not host:
-
-                    raise ValueError(
-                        "No host configured for "
-                        f"{camera_id.name}."
-                    )
-
-                port = getattr(
-                    camera_config,
-                    "port",
-                    self._port,
-                )
+            try:
 
                 client = (
                     self._client_factory(
@@ -212,13 +214,19 @@ class CameraCaptureService(CaptureService):
                     camera_id
                 ] = client
 
-            self._initialised = True
+            except (
+                TimeoutError,
+                OSError,
+                RuntimeError,
+            ) as exception:
 
-        except Exception:
+                self._close_failed_client(
+                    client,
+                )
 
-            self._shutdown_clients()
+                continue
 
-            raise
+        self._initialised = True
 
     def capture_position(
         self,
@@ -226,6 +234,10 @@ class CameraCaptureService(CaptureService):
     ) -> CaptureRecord:
         """
         Capture one image from every enabled camera.
+
+        If an individual camera times out or otherwise
+        fails, that camera is recorded as unsuccessful
+        and the remaining cameras continue.
         """
 
         if not self._initialised:
@@ -274,14 +286,36 @@ class CameraCaptureService(CaptureService):
 
             if client is None:
 
-                raise RuntimeError(
-                    "No client configured for "
-                    f"{pose.camera_id.name}."
+                results.append(
+                    replace(
+                        pose,
+                        image_name="",
+                        capture_successful=False,
+                    )
                 )
 
-            response = (
-                client.capture_image()
-            )
+                continue
+
+            try:
+
+                response = (
+                    client.capture_image()
+                )
+
+            except (
+                TimeoutError,
+                OSError,
+            ):
+
+                results.append(
+                    replace(
+                        pose,
+                        image_name="",
+                        capture_successful=False,
+                    )
+                )
+
+                continue
 
             if response.get(
                 "status",
@@ -395,3 +429,24 @@ class CameraCaptureService(CaptureService):
             except Exception:
 
                 pass
+
+    @staticmethod
+    def _close_failed_client(
+        client,
+    ) -> None:
+        """
+        Close a camera client that failed during
+        initialisation.
+        """
+
+        if client is None:
+
+            return
+
+        try:
+
+            client.disconnect()
+
+        except Exception:
+
+            pass

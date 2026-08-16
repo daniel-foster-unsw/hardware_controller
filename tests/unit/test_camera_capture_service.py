@@ -15,6 +15,10 @@ from tests.helpers.scan_context_factory import (
     create_scan_context,
 )
 
+from src.scanner.enums.camera_id import (
+    CameraID,
+)
+
 
 def create_client_factory(
     clients,
@@ -260,6 +264,80 @@ def test_initialise_skips_disabled_cameras():
         == 0
     )
 
+def test_initialise_skips_camera_that_times_out():
+    """
+    A camera that times out during initialisation is
+    skipped and the next camera is still initialised.
+    """
+
+    service_clients = create_clients()
+
+    service_clients[
+        "192.168.7.12"
+    ].start_scan.side_effect = TimeoutError(
+        "Camera response timed out."
+    )
+
+    service = create_service(
+        service_clients,
+    )
+
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
+
+    service.initialise(
+        context,
+    )
+
+    assert service.initialised
+
+    assert (
+        service.camera_count
+        == 4
+    )
+
+    assert (
+        "192.168.7.11"
+        in service_clients
+    )
+
+    service_clients[
+        "192.168.7.11"
+    ].start_scan.assert_called_once()
+
+    service_clients[
+        "192.168.7.12"
+    ].start_scan.assert_called_once()
+
+    service_clients[
+        "192.168.7.13"
+    ].start_scan.assert_called_once()
+
+    service_clients[
+        "192.168.7.14"
+    ].start_scan.assert_called_once()
+
+    service_clients[
+        "192.168.7.15"
+    ].start_scan.assert_called_once()
+
+    assert (
+        service.clients
+    )
+
+    assert (
+        len(service.clients)
+        == 4
+    )
+
+
+
+
+
+
+
+
 
 def test_capture_position():
     """Capture position returns a CaptureRecord."""
@@ -381,6 +459,101 @@ def test_capture_position_skips_disabled_cameras():
         ].capture_image.call_count
         == 0
     )
+
+def test_capture_position_skips_camera_that_times_out():
+    """
+    A camera that times out during capture is recorded
+    as unsuccessful and the remaining cameras continue.
+    """
+
+    service_clients = create_clients()
+
+    service_clients[
+        "192.168.7.13"
+    ].capture_image.side_effect = TimeoutError(
+        "Camera response timed out."
+    )
+
+    service = create_service(
+        service_clients,
+    )
+
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
+
+    service.initialise(
+        context,
+    )
+
+    record = service.capture_position(
+        context,
+    )
+
+    assert (
+        record.camera_count
+        == 5
+    )
+
+    assert (
+        record.successful_captures
+        == 4
+    )
+
+    assert (
+        record.failed_captures
+        == 1
+    )
+
+    assert not record.successful
+
+    failed = (
+        record.failed_camera_poses
+    )
+
+    assert len(
+        failed
+    ) == 1
+
+    assert (
+        failed[0].camera_id
+        == CameraID.CAM03
+    )
+
+    assert (
+        failed[0].image_name
+        == ""
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.11"
+        ].capture_image.call_count
+        == 1
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.13"
+        ].capture_image.call_count
+        == 1
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.14"
+        ].capture_image.call_count
+        == 1
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.15"
+        ].capture_image.call_count
+        == 1
+    )
+
+
 
 
 def test_multiple_captures():
