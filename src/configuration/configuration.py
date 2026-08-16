@@ -2,6 +2,10 @@
 Application configuration.
 """
 
+from src.configuration.camera_configuration import (
+    CameraConfiguration,
+)
+
 
 class Configuration:
     """Application configuration."""
@@ -17,6 +21,11 @@ class Configuration:
 
         self.scanner_host = ""
         self.scanner_port = 0
+
+        self.cameras: dict[
+            int,
+            CameraConfiguration,
+        ] = {}
 
         self.log_level = ""
         self.log_file = ""

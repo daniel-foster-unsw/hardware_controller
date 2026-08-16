@@ -1,4 +1,6 @@
-from src.configuration.configuration_manager import ConfigurationManager
+from src.configuration.configuration_manager import (
+    ConfigurationManager,
+)
 
 
 def test_configuration_loads():
@@ -37,3 +39,64 @@ def test_scanner_configuration_loads():
         assert False, (
             f"Unexpected exception: {exception}"
         )
+
+
+def test_camera_configuration_loads():
+
+    config = ConfigurationManager()
+
+    config.initialise()
+
+    assert len(
+        config.cameras
+    ) == 5
+
+
+def test_camera_enabled_configuration():
+
+    config = ConfigurationManager()
+
+    config.initialise()
+
+    assert config.cameras[1].enabled
+
+    assert not config.cameras[2].enabled
+
+    assert config.cameras[3].enabled
+
+    assert config.cameras[4].enabled
+
+    assert not config.cameras[5].enabled
+
+
+def test_camera_hosts():
+
+    config = ConfigurationManager()
+
+    config.initialise()
+
+    assert (
+        config.cameras[1].host
+        == "192.168.7.11"
+    )
+
+    assert (
+        config.cameras[3].host
+        == "192.168.7.13"
+    )
+
+    assert (
+        config.cameras[4].host
+        == "192.168.7.14"
+    )
+
+
+def test_camera_ports():
+
+    config = ConfigurationManager()
+
+    config.initialise()
+
+    for camera in config.cameras.values():
+
+        assert camera.port == 5000
