@@ -445,3 +445,220 @@ def test_capture_image():
     thread.join(
         timeout=1
     )
+
+def test_download_image():
+    image_data = (
+        b"JPEG_TEST_DATA_123456789"
+    )
+
+    response = {
+        "version": "1.0",
+        "status": "OK",
+        "message":
+            "Image transfer starting.",
+        "data": {
+            "filename":
+                "test_image.jpg",
+
+            "filesize":
+                len(image_data),
+        },
+    }
+
+    port, thread = (
+        start_binary_server(
+            response,
+            image_data,
+        )
+    )
+
+    client = CameraClient(
+        "127.0.0.1",
+        port,
+    )
+
+    try:
+        client.connect()
+
+        result = (
+            client.download_image(
+                "test_image.jpg"
+            )
+        )
+
+        assert (
+            result["status"]
+            == "OK"
+        )
+
+        assert (
+            result["filename"]
+            == "test_image.jpg"
+        )
+
+        assert (
+            result["filesize"]
+            == len(image_data)
+        )
+
+        assert (
+            result["data"]
+            == image_data
+        )
+
+    finally:
+        client.disconnect()
+
+    thread.join(
+        timeout=1
+    )
+
+
+
+
+    def test_download_image_preserves_binary_data():
+    image_data = (
+        b"\x00\x01\x02\n"
+        b"\xff\xd8JPEG"
+        b"\n\xff\xd9"
+    )
+
+    response = {
+        "version": "1.0",
+        "status": "OK",
+        "message":
+            "Image transfer starting.",
+        "data": {
+            "filename":
+                "binary_test.jpg",
+
+            "filesize":
+                len(image_data),
+        },
+    }
+
+    port, thread = (
+        start_binary_server(
+            response,
+            image_data,
+        )
+    )
+
+    client = CameraClient(
+        "127.0.0.1",
+        port,
+    )
+
+    try:
+        client.connect()
+
+        result = (
+            client.download_image(
+                "binary_test.jpg"
+            )
+        )
+
+        assert (
+            result["data"]
+            == image_data
+        )
+
+        assert (
+            len(result["data"])
+            == result["filesize"]
+        )
+
+    finally:
+        client.disconnect()
+
+    thread.join(
+        timeout=1
+    )
+
+
+
+
+
+
+
+
+
+
+
+"""
+--------------------------------------------
+Helpers
+--------------------------------------------
+"""
+def start_binary_server(
+    response,
+    binary_data,
+):
+    """Start a local server for binary transfers."""
+
+    server = socket.socket(
+        socket.AF_INET,
+        socket.SOCK_STREAM,
+    )
+
+    server.setsockopt(
+        socket.SOL_SOCKET,
+        socket.SO_REUSEADDR,
+        1,
+    )
+
+    server.bind(
+        (
+            "127.0.0.1",
+            0,
+        )
+    )
+
+    server.listen(1)
+
+    port = (
+        server.getsockname()[1]
+    )
+
+    def run():
+        connection, _ = (
+            server.accept()
+        )
+
+        try:
+            request = b""
+
+            while not request.endswith(
+                b"\n"
+            ):
+                data = connection.recv(
+                    4096
+                )
+
+                if not data:
+                    return
+
+                request += data
+
+            connection.sendall(
+                (
+                    json.dumps(response)
+                    + "\n"
+                ).encode(
+                    "utf-8"
+                )
+                + binary_data
+            )
+
+        finally:
+            connection.close()
+            server.close()
+
+    thread = threading.Thread(
+        target=run,
+        daemon=True,
+    )
+
+    thread.start()
+
+    return port, thread
