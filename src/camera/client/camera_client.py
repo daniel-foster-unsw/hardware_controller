@@ -73,19 +73,66 @@ class CameraClient:
         self._writer = None
         self._socket = None
 
-    def ping(self) -> Dict[str, Any]:
+    """
+    ---------------------------------------------
+    Commands
+    ---------------------------------------------
+    """
+
+
+
+
+    def ping(self):
         """Ping the camera controller."""
 
         return self._send_command(
             "PING"
         )
 
-    def get_status(self) -> Dict[str, Any]:
+
+    def get_status(self):
         """Retrieve camera status."""
 
         return self._send_command(
             "GET_CAMERA_STATUS"
         )
+
+
+    def start_scan(self):
+        """Start a camera scan."""
+
+        return self._send_command(
+            "START_SCAN"
+        )
+
+
+    def stop_scan(self):
+        """Stop the active camera scan."""
+
+        return self._send_command(
+            "STOP_SCAN"
+        )
+
+
+    def capture_image(self):
+        """Capture an image during an active scan."""
+
+        return self._send_command(
+            "CAPTURE_IMAGE"
+        )
+
+
+    """
+    ---------------------------------------------
+    helpers
+    ---------------------------------------------
+    """
+
+
+
+
+
+
 
     def capture_image(self) -> Dict[str, Any]:
         """Capture an image."""
@@ -93,6 +140,18 @@ class CameraClient:
         return self._send_command(
             "CAPTURE_IMAGE"
         )
+
+
+
+
+
+
+
+
+
+
+
+
 
     def _send_command(
         self,

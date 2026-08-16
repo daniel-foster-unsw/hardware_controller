@@ -173,6 +173,104 @@ def test_get_status():
     thread.join(
         timeout=1
     )
+def test_start_scan():
+    response = {
+        "version": "1.0",
+        "status": "OK",
+        "message": "Scan started.",
+        "data": {
+            "name": "20260816_0920_CAM01"
+        },
+    }
+
+    port, thread = start_server(
+        response
+    )
+
+    client = CameraClient(
+        "127.0.0.1",
+        port,
+    )
+
+    try:
+        client.connect()
+
+        result = client.start_scan()
+
+        assert result["status"] == "OK"
+
+        assert (
+            result["message"]
+            == "Scan started."
+        )
+
+        assert (
+            result["data"]["name"]
+        )
+
+    finally:
+        client.disconnect()
+
+    thread.join(
+        timeout=1
+    )
+
+
+def test_stop_scan():
+    response = {
+        "version": "1.0",
+        "status": "OK",
+        "message": "Scan stopped.",
+        "data": {
+            "name": "20260816_0920_CAM01"
+        },
+    }
+
+    port, thread = start_server(
+        response
+    )
+
+    client = CameraClient(
+        "127.0.0.1",
+        port,
+    )
+
+    try:
+        client.connect()
+
+        result = client.stop_scan()
+
+        assert result["status"] == "OK"
+
+        assert (
+            result["message"]
+            == "Scan stopped."
+        )
+
+        assert (
+            result["data"]["name"]
+        )
+
+    finally:
+        client.disconnect()
+
+    thread.join(
+        timeout=1
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def test_capture_image():
