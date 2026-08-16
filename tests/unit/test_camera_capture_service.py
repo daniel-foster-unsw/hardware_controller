@@ -10,6 +10,10 @@ from src.camera.services.camera_capture_service import (
     CameraCaptureService,
 )
 
+from src.configuration.camera_configuration import (
+    CameraConfiguration,
+)
+
 from tests.helpers.scan_context_factory import (
     create_scan_context,
 )
@@ -74,21 +78,86 @@ def create_clients():
     return clients
 
 
+def create_camera_configurations(
+    enabled=True,
+):
+    """
+    Create camera configurations.
+
+    Parameters
+    ----------
+    enabled:
+        Enable or disable all cameras.
+    """
+
+    configurations = {}
+
+    for number in range(1, 6):
+
+        configurations[number] = (
+            CameraConfiguration(
+                camera_id=number,
+                enabled=enabled,
+                host=(
+                    f"192.168.7."
+                    f"{10 + number}"
+                ),
+                port=5000,
+            )
+        )
+
+    return configurations
+
+
 def create_service(
     clients,
 ):
-    """Create a service using mock clients."""
+    """Create a service using all enabled mock cameras."""
 
-    hosts = {
-        1: "192.168.7.11",
-        2: "192.168.7.12",
-        3: "192.168.7.13",
-        4: "192.168.7.14",
-        5: "192.168.7.15",
-    }
+    cameras = (
+        create_camera_configurations(
+            enabled=True,
+        )
+    )
 
     return CameraCaptureService(
-        camera_hosts=hosts,
+        cameras=cameras,
+        client_factory=create_client_factory(
+            clients,
+        ),
+    )
+
+
+def create_service_with_disabled_cameras(
+    clients,
+):
+    """
+    Create a service where CAM02 and CAM05
+    are disabled.
+    """
+
+    cameras = (
+        create_camera_configurations(
+            enabled=True,
+        )
+    )
+
+    cameras[2] = CameraConfiguration(
+        camera_id=2,
+        enabled=False,
+        host="192.168.7.12",
+        port=5000,
+    )
+
+    cameras[5] = CameraConfiguration(
+        camera_id=5,
+        enabled=False,
+        host="192.168.7.15",
+        port=5000,
+    )
+
+    return CameraCaptureService(
+        cameras=cameras,
         client_factory=create_client_factory(
             clients,
         ),
@@ -124,6 +193,70 @@ def test_initialise():
         client.connect.assert_called_once()
 
         client.start_scan.assert_called_once()
+
+
+def test_initialise_skips_disabled_cameras():
+    """
+    Cameras disabled in configuration are not connected.
+    """
+
+    service_clients = (
+        create_clients()
+    )
+
+    service = (
+        create_service_with_disabled_cameras(
+            service_clients,
+        )
+    )
+
+    context = create_scan_context()
+
+    service.initialise(
+        context,
+    )
+
+    assert service.initialised
+
+    assert (
+        service.camera_count
+        == 3
+    )
+
+    #
+    # Enabled cameras.
+    #
+
+    for host in (
+        "192.168.7.11",
+        "192.168.7.13",
+        "192.168.7.14",
+    ):
+
+        service_clients[
+            host
+        ].connect.assert_called_once()
+
+        service_clients[
+            host
+        ].start_scan.assert_called_once()
+
+    #
+    # Disabled cameras.
+    #
+
+    for host in (
+        "192.168.7.12",
+        "192.168.7.15",
+    ):
+
+        service_clients[
+            host
+        ].connect.assert_not_called()
+
+        service_clients[
+            host
+        ].start_scan.assert_not_called()
 
 
 def test_capture_position():
@@ -174,6 +307,66 @@ def test_capture_position():
             "CAM05_000001.jpg",
         )
     )
+
+
+def test_capture_position_skips_disabled_cameras():
+    """
+    Disabled cameras do not participate in capture.
+    """
+
+    service_clients = (
+        create_clients()
+    )
+
+    service = (
+        create_service_with_disabled_cameras(
+            service_clients,
+        )
+    )
+
+    context = create_scan_context()
+
+    service.initialise(
+        context,
+    )
+
+    record = service.capture_position(
+        context,
+    )
+
+    assert (
+        record.camera_count
+        == 3
+    )
+
+    assert (
+        record.successful_captures
+        == 3
+    )
+
+    assert record.successful
+
+    assert (
+        record.image_names
+        == (
+            "CAM01_000001.jpg",
+            "CAM03_000001.jpg",
+            "CAM04_000001.jpg",
+        )
+    )
+
+    #
+    # Disabled cameras must never receive
+    # a capture command.
+    #
+
+    service_clients[
+        "192.168.7.12"
+    ].capture_image.assert_not_called()
+
+    service_clients[
+        "192.168.7.15"
+    ].capture_image.assert_not_called()
 
 
 def test_multiple_captures():
@@ -265,7 +458,9 @@ def test_failed_camera_capture():
 
     assert not record.successful
 
-    failed = record.failed_camera_poses
+    failed = (
+        record.failed_camera_poses
+    )
 
     assert len(failed) == 1
 
@@ -308,3 +503,65 @@ def test_shutdown():
         client.stop_scan.assert_called_once()
 
         client.disconnect.assert_called_once()
+
+
+def test_shutdown_only_disconnects_enabled_cameras():
+    """
+    Shutdown only stops and disconnects cameras that
+    were actually connected.
+    """
+
+    service_clients = (
+        create_clients()
+    )
+
+    service = (
+        create_service_with_disabled_cameras(
+            service_clients,
+        )
+    )
+
+    context = create_scan_context()
+
+    service.initialise(
+        context,
+    )
+
+    service.shutdown(
+        context,
+    )
+
+    #
+    # Enabled cameras.
+    #
+
+    for host in (
+        "192.168.7.11",
+        "192.168.7.13",
+        "192.168.7.14",
+    ):
+
+        service_clients[
+            host
+        ].stop_scan.assert_called_once()
+
+        service_clients[
+            host
+        ].disconnect.assert_called_once()
+
+    #
+    # Disabled cameras.
+    #
+
+    for host in (
+        "192.168.7.12",
+        "192.168.7.15",
+    ):
+
+        service_clients[
+            host
+        ].stop_scan.assert_not_called()
+
+        service_clients[
+            host
+        ].disconnect.assert_not_called()

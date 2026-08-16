@@ -16,6 +16,10 @@ from src.camera.services.capture_service import (
     CaptureService,
 )
 
+from src.configuration.camera_configuration import (
+    CameraConfiguration,
+)
+
 from src.scan.models.capture_record import (
     CaptureRecord,
 )
@@ -44,12 +48,12 @@ class CameraCaptureService(CaptureService):
     Manages the camera controllers used during a scan.
     """
 
-    DEFAULT_PORT = 5000
-
     def __init__(
         self,
-        camera_hosts: dict[int, str],
-        port: int = DEFAULT_PORT,
+        cameras: dict[
+            int,
+            CameraConfiguration,
+        ],
         client_factory: Callable[
             [str, int],
             CameraClient,
@@ -60,17 +64,9 @@ class CameraCaptureService(CaptureService):
 
         Parameters
         ----------
-        camera_hosts:
-            Mapping of logical camera IDs to IP addresses.
-
-            Example:
-                {
-                    1: "192.168.7.11",
-                    2: "192.168.7.12",
-                }
-
-        port:
-            Camera controller TCP port.
+        cameras:
+            Mapping of logical camera IDs to camera
+            configuration objects.
 
         client_factory:
             Factory used to create CameraClient instances.
@@ -78,11 +74,9 @@ class CameraCaptureService(CaptureService):
             real cameras.
         """
 
-        self._camera_hosts = dict(
-            camera_hosts,
+        self._cameras = dict(
+            cameras,
         )
-
-        self._port = port
 
         self._client_factory = (
             client_factory
@@ -141,43 +135,56 @@ class CameraCaptureService(CaptureService):
 
         self._capture_index = 0
 
-        enabled_cameras = (
+        scan_cameras = (
             context.configuration.enabled_cameras
         )
 
         try:
-            for camera_number in enabled_cameras:
+
+            for camera_number in scan_cameras:
+
+                camera_configuration = (
+                    self._cameras.get(
+                        camera_number,
+                    )
+                )
+
+                if camera_configuration is None:
+
+                    raise ValueError(
+                        "No configuration for "
+                        f"CAM{camera_number:02d}."
+                    )
+
+                #
+                # A camera disabled in config.json is
+                # not used by the capture service.
+                #
+
+                if not camera_configuration.enabled:
+                    continue
 
                 camera_id = CameraID(
                     camera_number,
                 )
 
-                host = (
-                    self._camera_hosts.get(
-                        camera_number,
-                    )
-                )
-
-                if host is None:
-                    raise ValueError(
-                        "No host configured for "
-                        f"{camera_id.name}."
-                    )
-
                 client = (
                     self._client_factory(
-                        host,
-                        self._port,
+                        camera_configuration.host,
+                        camera_configuration.port,
                     )
                 )
 
                 client.connect()
 
-                response = client.start_scan()
+                response = (
+                    client.start_scan()
+                )
 
                 if response.get(
                     "status",
                 ) != "OK":
+
                     raise RuntimeError(
                         "Failed to start camera "
                         f"{camera_id.name} scan: "
@@ -191,6 +198,7 @@ class CameraCaptureService(CaptureService):
             self._initialised = True
 
         except Exception:
+
             self._shutdown_clients()
 
             raise
@@ -204,8 +212,10 @@ class CameraCaptureService(CaptureService):
         """
 
         if not self._initialised:
+
             raise RuntimeError(
-                "Camera capture service is not initialised."
+                "Camera capture service "
+                "is not initialised."
             )
 
         self._capture_index += 1
@@ -230,6 +240,12 @@ class CameraCaptureService(CaptureService):
             CameraID(camera)
             for camera
             in context.configuration.enabled_cameras
+            if (
+                self._cameras.get(camera) is not None
+                and self._cameras[
+                    camera
+                ].enabled
+            )
         }
 
         results = []
@@ -254,6 +270,7 @@ class CameraCaptureService(CaptureService):
             if response.get(
                 "status",
             ) != "OK":
+
                 results.append(
                     replace(
                         pose,
@@ -272,6 +289,7 @@ class CameraCaptureService(CaptureService):
                 data,
                 dict,
             ):
+
                 results.append(
                     replace(
                         pose,
@@ -287,6 +305,7 @@ class CameraCaptureService(CaptureService):
             )
 
             if not image_name:
+
                 results.append(
                     replace(
                         pose,
@@ -341,11 +360,15 @@ class CameraCaptureService(CaptureService):
         for _, client in clients:
 
             try:
+
                 client.stop_scan()
+
             except Exception:
                 pass
 
             try:
+
                 client.disconnect()
+
             except Exception:
                 pass

@@ -52,17 +52,33 @@ class ConfigurationManager:
 
             data = json.load(file)
 
+        #
+        # Application
+        #
+
         self.configuration.application_name = \
             data["application"]["name"]
 
         self.configuration.version = \
             data["application"]["version"]
 
+        #
+        # Communication
+        #
+
         self.configuration.transport = \
             data["communication"]["transport"]
 
+        #
+        # Motors
+        #
+
         self.configuration.motor_count = \
             data["motors"]["count"]
+
+        #
+        # Scanner
+        #
 
         self.configuration.scanner_host = \
             data["scanner"]["host"]
