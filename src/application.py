@@ -4,16 +4,12 @@ Main application class.
 
 import time
 
-from src.camera.services.mock_capture_service import (
-    MockCaptureService,
+from src.camera.services.camera_capture_service import (
+    CameraCaptureService,
 )
 
 from src.camera.services.mock_download_service import (
     MockDownloadService,
-)
-
-from src.communication.mock_transport import (
-    MockTransport,
 )
 
 from src.communication.scanner.scanner_command_handler import (
@@ -150,9 +146,6 @@ class Application:
             #
             # Scanner geometry
             #
-            # The geometry factory currently provides
-            # the project's default five-camera geometry.
-            #
 
             self.scanner_geometry = (
                 create_scanner_geometry()
@@ -161,8 +154,10 @@ class Application:
             #
             # Scanner services
             #
-            # These are mock implementations until
-            # Camera Integration and Motion Integration.
+            # Motion and download are still mocked.
+            #
+            # Camera capture uses the camera
+            # configuration loaded from config.json.
             #
 
             self.motion_service = (
@@ -170,7 +165,11 @@ class Application:
             )
 
             self.capture_service = (
-                MockCaptureService()
+                CameraCaptureService(
+                    cameras=(
+                        self.configuration.cameras
+                    ),
+                )
             )
 
             self.download_service = (
@@ -292,10 +291,6 @@ class Application:
                 "Shutdown requested."
             )
 
-
-
-
-
     def shutdown(self) -> None:
         """Shutdown the application."""
 
@@ -333,7 +328,17 @@ class Application:
 
             self.motion_service = None
 
-            self.capture_service = None
+            if self.capture_service is not None:
+
+                try:
+
+                    self.capture_service.shutdown()
+
+                except Exception:
+
+                    pass
+
+                self.capture_service = None
 
             self.download_service = None
 

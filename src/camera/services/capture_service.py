@@ -10,6 +10,7 @@ from abc import abstractmethod
 from src.scan.models.capture_record import (
     CaptureRecord,
 )
+
 from src.scan.models.scan_context import (
     ScanContext,
 )
@@ -41,7 +42,6 @@ class CaptureService(ABC):
     @abstractmethod
     def shutdown(
         self,
-        context: ScanContext,
     ) -> None:
         """
         Shutdown cameras.

@@ -16,10 +16,6 @@ from src.camera.services.capture_service import (
     CaptureService,
 )
 
-from src.configuration.camera_configuration import (
-    CameraConfiguration,
-)
-
 from src.scan.models.capture_record import (
     CaptureRecord,
 )
@@ -48,12 +44,12 @@ class CameraCaptureService(CaptureService):
     Manages the camera controllers used during a scan.
     """
 
+    DEFAULT_PORT = 5000
+
     def __init__(
         self,
-        cameras: dict[
-            int,
-            CameraConfiguration,
-        ],
+        cameras,
+        port: int = DEFAULT_PORT,
         client_factory: Callable[
             [str, int],
             CameraClient,
@@ -65,8 +61,16 @@ class CameraCaptureService(CaptureService):
         Parameters
         ----------
         cameras:
-            Mapping of logical camera IDs to camera
-            configuration objects.
+            Camera configuration loaded from config.json.
+
+            Each camera configuration contains:
+
+                enabled
+                host
+                port
+
+        port:
+            Default camera controller TCP port.
 
         client_factory:
             Factory used to create CameraClient instances.
@@ -77,6 +81,8 @@ class CameraCaptureService(CaptureService):
         self._cameras = dict(
             cameras,
         )
+
+        self._port = port
 
         self._client_factory = (
             client_factory
@@ -113,7 +119,7 @@ class CameraCaptureService(CaptureService):
         CameraClient,
     ]:
         """
-        Return the configured camera clients.
+        Return the connected camera clients.
 
         The returned dictionary is a copy.
         """
@@ -135,43 +141,41 @@ class CameraCaptureService(CaptureService):
 
         self._capture_index = 0
 
-        scan_cameras = (
+        enabled_cameras = (
             context.configuration.enabled_cameras
         )
 
         try:
 
-            for camera_number in scan_cameras:
-
-                camera_configuration = (
-                    self._cameras.get(
-                        camera_number,
-                    )
-                )
-
-                if camera_configuration is None:
-
-                    raise ValueError(
-                        "No configuration for "
-                        f"CAM{camera_number:02d}."
-                    )
-
-                #
-                # A camera disabled in config.json is
-                # not used by the capture service.
-                #
-
-                if not camera_configuration.enabled:
-                    continue
+            for camera_number in enabled_cameras:
 
                 camera_id = CameraID(
                     camera_number,
                 )
 
+                camera_config = (
+                    self._cameras.get(
+                        camera_id.name,
+                    )
+                )
+
+                if camera_config is None:
+                    raise ValueError(
+                        "No configuration found for "
+                        f"{camera_id.name}."
+                    )
+
+                if not camera_config.enabled:
+                    continue
+
+                host = camera_config.host
+
+                port = camera_config.port
+
                 client = (
                     self._client_factory(
-                        camera_configuration.host,
-                        camera_configuration.port,
+                        host,
+                        port,
                     )
                 )
 
@@ -214,8 +218,7 @@ class CameraCaptureService(CaptureService):
         if not self._initialised:
 
             raise RuntimeError(
-                "Camera capture service "
-                "is not initialised."
+                "Camera capture service is not initialised."
             )
 
         self._capture_index += 1
@@ -230,22 +233,18 @@ class CameraCaptureService(CaptureService):
             camera5_z_mm=295.0,
         )
 
-        camera_poses = CameraPoseBuilder.build(
-            geometry=context.geometry,
-            scanner_pose=scanner_pose,
-            capture_index=self._capture_index,
+        camera_poses = (
+            CameraPoseBuilder.build(
+                geometry=context.geometry,
+                scanner_pose=scanner_pose,
+                capture_index=self._capture_index,
+            )
         )
 
         enabled_cameras = {
             CameraID(camera)
             for camera
             in context.configuration.enabled_cameras
-            if (
-                self._cameras.get(camera) is not None
-                and self._cameras[
-                    camera
-                ].enabled
-            )
         }
 
         results = []
@@ -260,12 +259,15 @@ class CameraCaptureService(CaptureService):
             )
 
             if client is None:
+
                 raise RuntimeError(
                     "No client configured for "
                     f"{pose.camera_id.name}."
                 )
 
-            response = client.capture_image()
+            response = (
+                client.capture_image()
+            )
 
             if response.get(
                 "status",
@@ -282,7 +284,7 @@ class CameraCaptureService(CaptureService):
                 continue
 
             data = response.get(
-                "data"
+                "data",
             )
 
             if not isinstance(
@@ -336,7 +338,6 @@ class CameraCaptureService(CaptureService):
 
     def shutdown(
         self,
-        context: ScanContext,
     ) -> None:
         """
         Stop the camera scans and disconnect.
@@ -349,7 +350,9 @@ class CameraCaptureService(CaptureService):
     def _shutdown_clients(
         self,
     ) -> None:
-        """Stop and disconnect all camera clients."""
+        """
+        Stop and disconnect all connected camera clients.
+        """
 
         clients = list(
             self._clients.items()
@@ -364,6 +367,7 @@ class CameraCaptureService(CaptureService):
                 client.stop_scan()
 
             except Exception:
+
                 pass
 
             try:
@@ -371,4 +375,5 @@ class CameraCaptureService(CaptureService):
                 client.disconnect()
 
             except Exception:
+
                 pass
