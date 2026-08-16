@@ -128,3 +128,118 @@ def test_cam01_capture_image():
                 pass
 
         client.disconnect()
+
+
+
+def test_cam01_download_image():
+    assert CAMERA_HOST is not None
+
+    client = CameraClient(
+        CAMERA_HOST,
+        CAMERA_PORT,
+    )
+
+    scan_started = False
+
+    try:
+        client.connect()
+
+        start_response = (
+            client.start_scan()
+        )
+
+        assert (
+            start_response["status"]
+            == "OK"
+        )
+
+        scan_started = True
+
+        capture_response = (
+            client.capture_image()
+        )
+
+        assert (
+            capture_response["status"]
+            == "OK"
+        )
+
+        capture_data = (
+            capture_response["data"]
+        )
+
+        assert capture_data is not None
+
+        filename = (
+            capture_data["filename"]
+        )
+
+        expected_filesize = (
+            capture_data["filesize"]
+        )
+
+        assert filename
+
+        assert expected_filesize > 0
+
+        stop_response = (
+            client.stop_scan()
+        )
+
+        scan_started = False
+
+        assert (
+            stop_response["status"]
+            == "OK"
+        )
+
+        download_response = (
+            client.download_image(
+                filename
+            )
+        )
+
+        assert (
+            download_response["status"]
+            == "OK"
+        )
+
+        assert (
+            download_response["filename"]
+            == filename
+        )
+
+        assert (
+            download_response["filesize"]
+            == expected_filesize
+        )
+
+        image_data = (
+            download_response["data"]
+        )
+
+        assert image_data is not None
+
+        assert (
+            len(image_data)
+            == expected_filesize
+        )
+
+        assert (
+            image_data[:2]
+            == b"\xff\xd8"
+        )
+
+        assert (
+            image_data[-2:]
+            == b"\xff\xd9"
+        )
+
+    finally:
+        if scan_started:
+            try:
+                client.stop_scan()
+            except Exception:
+                pass
+
+        client.disconnect()
