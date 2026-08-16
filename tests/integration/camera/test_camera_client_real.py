@@ -65,25 +65,43 @@ def test_cam01_capture_image():
         CAMERA_PORT,
     )
 
+    scan_started = False
+
     try:
         client.connect()
 
-        response = client.capture_image()
-
-        assert response["status"] == "OK"
+        start_response = (
+            client.start_scan()
+        )
 
         assert (
-            response["message"]
+            start_response["status"]
+            == "OK"
+        )
+
+        scan_started = True
+
+        capture_response = (
+            client.capture_image()
+        )
+
+        assert (
+            capture_response["status"]
+            == "OK"
+        )
+
+        assert (
+            capture_response["message"]
             == "Image captured."
         )
 
-        data = response["data"]
+        data = (
+            capture_response["data"]
+        )
 
         assert data is not None
 
-        assert (
-            data["filename"]
-        )
+        assert data["filename"]
 
         assert (
             data["filesize"] > 0
@@ -103,4 +121,10 @@ def test_cam01_capture_image():
         )
 
     finally:
+        if scan_started:
+            try:
+                client.stop_scan()
+            except Exception:
+                pass
+
         client.disconnect()
