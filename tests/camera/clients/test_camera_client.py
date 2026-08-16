@@ -516,7 +516,7 @@ def test_download_image():
 
 
 
-    def test_download_image_preserves_binary_data():
+def test_download_image_preserves_binary_data():
     image_data = (
         b"\x00\x01\x02\n"
         b"\xff\xd8JPEG"
