@@ -9,6 +9,10 @@ from src.configuration.configuration import (
     Configuration,
 )
 
+from src.configuration.camera_configuration import (
+    CameraConfiguration,
+)
+
 from src.common.exceptions import (
     ConfigurationError,
 )
@@ -35,9 +39,17 @@ class ConfigurationManager:
 
         self.load(config_path)
 
-    def load(self,filename: Path):
+    def load(
+        self,
+        filename: Path,
+    ):
 
-        with open(filename, "r", encoding="utf-8") as file:
+        with open(
+            filename,
+            "r",
+            encoding="utf-8",
+        ) as file:
+
             data = json.load(file)
 
         self.configuration.application_name = \
@@ -57,6 +69,36 @@ class ConfigurationManager:
 
         self.configuration.scanner_port = \
             data["scanner"]["port"]
+
+        #
+        # Cameras
+        #
+
+        camera_data = data["cameras"]
+
+        self.configuration.cameras = {}
+
+        for camera_name, camera in camera_data.items():
+
+            camera_number = int(
+                camera_name.replace(
+                    "CAM",
+                    "",
+                )
+            )
+
+            self.configuration.cameras[
+                camera_number
+            ] = CameraConfiguration(
+                camera_id=camera_number,
+                enabled=camera["enabled"],
+                host=camera["host"],
+                port=camera["port"],
+            )
+
+        #
+        # Logging
+        #
 
         self.configuration.log_level = \
             data["logging"]["level"]
@@ -87,6 +129,12 @@ class ConfigurationManager:
     @property
     def scanner_port(self):
         return self.configuration.scanner_port
+
+    @property
+    def cameras(self):
+        return dict(
+            self.configuration.cameras
+        )
 
     @property
     def log_level(self):
