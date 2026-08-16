@@ -1,6 +1,8 @@
 """
-Real integration tests for all five camera controllers.
+Real integration tests for the enabled camera controllers.
 """
+
+from __future__ import annotations
 
 import os
 
@@ -10,6 +12,7 @@ from concurrent.futures import (
 )
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 from src.camera.services.camera_capture_service import (
     CameraCaptureService,
@@ -26,60 +29,93 @@ from tests.helpers.scan_context_factory import (
 
 CAMERA_PORT = 5000
 
-# Maximum time allowed for an individual camera operation.
+# Maximum time allowed for an individual
+# camera operation.
 CAMERA_TIMEOUT_SECONDS = 5.0
 
 
-def create_camera_hosts() -> dict[int, str]:
-    """Read all camera hosts from the environment."""
+ENABLED_CAMERA_NUMBERS = (
+    1,
+    3,
+    4,
+)
 
-    hosts = {}
+
+def create_camera_config():
+    """
+    Create camera configuration for the cameras
+    currently enabled in config.
+    """
+
+    cameras = {}
 
     for camera_number in range(1, 6):
 
+        camera_name = (
+            f"CAM0{camera_number}"
+        )
+
         variable = (
-            f"CAM0{camera_number}_HOST"
+            f"{camera_name}_HOST"
         )
 
         host = os.environ.get(
             variable,
         )
 
-        assert host is not None, (
-            f"{variable} is not set."
+        if camera_number in ENABLED_CAMERA_NUMBERS:
+
+            assert host is not None, (
+                f"{variable} is not set."
+            )
+
+            enabled = True
+
+        else:
+
+            enabled = False
+
+        cameras[camera_name] = (
+            SimpleNamespace(
+                enabled=enabled,
+                host=host or (
+                    f"192.168.7."
+                    f"{10 + camera_number}"
+                ),
+                port=CAMERA_PORT,
+            )
         )
 
-        hosts[camera_number] = host
-
-    return hosts
+    return cameras
 
 
 def create_all_camera_context():
-    """Create a scan context with all five cameras enabled."""
+    """
+    Create a scan context using the cameras that
+    are currently enabled.
+    """
 
     context = create_scan_context()
 
     configuration = replace(
         context.configuration,
         enabled_cameras=(
-            1,
-            2,
-            3,
-            4,
-            5,
+            ENABLED_CAMERA_NUMBERS
         ),
     )
 
-    context.configuration = configuration
+    context.configuration = (
+        configuration
+    )
 
     return context
 
 
 def create_camera_service():
-    """Create a five-camera capture service."""
+    """Create a capture service from camera configuration."""
 
     return CameraCaptureService(
-        camera_hosts=create_camera_hosts(),
+        cameras=create_camera_config(),
         port=CAMERA_PORT,
     )
 
@@ -101,6 +137,7 @@ def run_with_timeout(
         )
 
         try:
+
             return future.result(
                 timeout=timeout,
             )
@@ -115,32 +152,49 @@ def run_with_timeout(
 
 
 def test_all_cameras_initialise():
-    """All five cameras initialise successfully."""
+    """
+    All enabled cameras initialise successfully.
+    """
 
     service = create_camera_service()
 
     context = create_all_camera_context()
 
     try:
+
         service.initialise(
             context,
         )
 
         assert service.initialised
 
-        assert service.camera_count == 5
+        assert (
+            service.camera_count
+            == len(
+                ENABLED_CAMERA_NUMBERS
+            )
+        )
 
         assert set(
             service.clients.keys()
         ) == {
             CameraID.CAM01,
-            CameraID.CAM02,
             CameraID.CAM03,
             CameraID.CAM04,
-            CameraID.CAM05,
         }
 
+        assert (
+            CameraID.CAM02
+            not in service.clients
+        )
+
+        assert (
+            CameraID.CAM05
+            not in service.clients
+        )
+
     finally:
+
         service.shutdown(
             context,
         )
@@ -148,11 +202,11 @@ def test_all_cameras_initialise():
 
 def test_all_cameras_capture_position():
     """
-    All five cameras are given an opportunity to capture
-    one position.
+    All enabled cameras are given an opportunity
+    to capture one position.
 
-    A camera that exceeds the timeout is skipped so that
-    the remaining cameras can continue.
+    A camera that exceeds the timeout is skipped
+    so that the remaining cameras can continue.
     """
 
     service = create_camera_service()
@@ -160,6 +214,7 @@ def test_all_cameras_capture_position():
     context = create_all_camera_context()
 
     try:
+
         service.initialise(
             context,
         )
@@ -168,10 +223,8 @@ def test_all_cameras_capture_position():
 
         for camera_id in (
             CameraID.CAM01,
-            CameraID.CAM02,
             CameraID.CAM03,
             CameraID.CAM04,
-            CameraID.CAM05,
         ):
 
             client = service.clients.get(
@@ -181,6 +234,7 @@ def test_all_cameras_capture_position():
             assert client is not None
 
             try:
+
                 response = run_with_timeout(
                     client.capture_image,
                     CAMERA_TIMEOUT_SECONDS,
@@ -200,24 +254,29 @@ def test_all_cameras_capture_position():
                 print(
                     f"{camera_id.name}: "
                     f"timed out after "
-                    f"{CAMERA_TIMEOUT_SECONDS} seconds."
+                    f"{CAMERA_TIMEOUT_SECONDS} "
+                    "seconds."
                 )
 
         successful = sum(
             response is not None
-            for response in results.values()
+            for response
+            in results.values()
         )
 
         print(
-            f"Successful cameras: "
-            f"{successful}/5"
+            "Successful cameras: "
+            f"{successful}/"
+            f"{len(ENABLED_CAMERA_NUMBERS)}"
         )
 
         assert successful > 0, (
-            "No cameras completed the capture."
+            "No enabled cameras completed "
+            "the capture."
         )
 
     finally:
+
         service.shutdown(
             context,
         )
@@ -225,10 +284,11 @@ def test_all_cameras_capture_position():
 
 def test_all_cameras_multiple_positions():
     """
-    All five cameras are given two capture opportunities.
+    All enabled cameras are given two capture
+    opportunities.
 
-    Individual camera timeouts do not prevent the test
-    from continuing to the next camera.
+    Individual camera timeouts do not prevent
+    the test from continuing to the next camera.
     """
 
     service = create_camera_service()
@@ -236,6 +296,7 @@ def test_all_cameras_multiple_positions():
     context = create_all_camera_context()
 
     try:
+
         service.initialise(
             context,
         )
@@ -244,10 +305,8 @@ def test_all_cameras_multiple_positions():
 
         for camera_id in (
             CameraID.CAM01,
-            CameraID.CAM02,
             CameraID.CAM03,
             CameraID.CAM04,
-            CameraID.CAM05,
         ):
 
             client = service.clients.get(
@@ -264,6 +323,7 @@ def test_all_cameras_multiple_positions():
             ):
 
                 try:
+
                     response = run_with_timeout(
                         client.capture_image,
                         CAMERA_TIMEOUT_SECONDS,
@@ -275,7 +335,8 @@ def test_all_cameras_multiple_positions():
 
                     print(
                         f"{camera_id.name}: "
-                        f"capture {capture_number} "
+                        f"capture "
+                        f"{capture_number} "
                         "completed."
                     )
 
@@ -287,9 +348,11 @@ def test_all_cameras_multiple_positions():
 
                     print(
                         f"{camera_id.name}: "
-                        f"capture {capture_number} "
+                        f"capture "
+                        f"{capture_number} "
                         f"timed out after "
-                        f"{CAMERA_TIMEOUT_SECONDS} seconds."
+                        f"{CAMERA_TIMEOUT_SECONDS} "
+                        "seconds."
                     )
 
             results[camera_id] = (
@@ -304,16 +367,26 @@ def test_all_cameras_multiple_positions():
             in camera_results
         )
 
+        total_opportunities = (
+            len(
+                ENABLED_CAMERA_NUMBERS
+            )
+            * 2
+        )
+
         print(
-            f"Successful captures: "
-            f"{successful}/10"
+            "Successful captures: "
+            f"{successful}/"
+            f"{total_opportunities}"
         )
 
         assert successful > 0, (
-            "No camera captures completed."
+            "No enabled cameras completed "
+            "any captures."
         )
 
     finally:
+
         service.shutdown(
             context,
         )

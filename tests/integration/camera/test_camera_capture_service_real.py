@@ -2,9 +2,12 @@
 Real integration tests for CameraCaptureService.
 """
 
+from __future__ import annotations
+
 import os
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 from src.camera.services.camera_capture_service import (
     CameraCaptureService,
@@ -22,15 +25,25 @@ CAMERA_HOST = os.environ.get(
 CAMERA_PORT = 5000
 
 
-def create_camera_service():
-    """Create a CameraCaptureService for CAM01."""
+def create_camera_config():
+    """Create the CAM01 configuration."""
 
     assert CAMERA_HOST is not None
 
+    return {
+        "CAM01": SimpleNamespace(
+            enabled=True,
+            host=CAMERA_HOST,
+            port=CAMERA_PORT,
+        ),
+    }
+
+
+def create_camera_service():
+    """Create a CameraCaptureService for CAM01."""
+
     return CameraCaptureService(
-        camera_hosts={
-            1: CAMERA_HOST,
-        },
+        cameras=create_camera_config(),
         port=CAMERA_PORT,
     )
 
@@ -58,6 +71,7 @@ def test_cam01_service_initialise():
     context = create_cam01_context()
 
     try:
+
         service.initialise(
             context,
         )
@@ -67,6 +81,7 @@ def test_cam01_service_initialise():
         assert service.camera_count == 1
 
     finally:
+
         service.shutdown(
             context,
         )
@@ -80,6 +95,7 @@ def test_cam01_service_capture_position():
     context = create_cam01_context()
 
     try:
+
         service.initialise(
             context,
         )
@@ -111,6 +127,7 @@ def test_cam01_service_capture_position():
         )
 
     finally:
+
         service.shutdown(
             context,
         )
@@ -124,6 +141,7 @@ def test_cam01_service_multiple_captures():
     context = create_cam01_context()
 
     try:
+
         service.initialise(
             context,
         )
@@ -160,6 +178,7 @@ def test_cam01_service_multiple_captures():
         )
 
     finally:
+
         service.shutdown(
             context,
         )

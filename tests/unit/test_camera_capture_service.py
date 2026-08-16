@@ -6,6 +6,8 @@ from unittest.mock import (
     MagicMock,
 )
 
+from types import SimpleNamespace
+
 from src.camera.services.camera_capture_service import (
     CameraCaptureService,
 )
@@ -109,19 +111,32 @@ def create_camera_configurations(
     return configurations
 
 
+def create_camera_config():
+    """Create mock camera configurations."""
+
+    cameras = {}
+
+    for number in range(1, 6):
+
+        cameras[
+            f"CAM0{number}"
+        ] = SimpleNamespace(
+            enabled=True,
+            host=f"192.168.7.{10 + number}",
+            port=5000,
+        )
+
+    return cameras
+
+
 def create_service(
     clients,
 ):
-    """Create a service using all enabled mock cameras."""
-
-    cameras = (
-        create_camera_configurations(
-            enabled=True,
-        )
-    )
+    """Create a service using mock clients."""
 
     return CameraCaptureService(
-        cameras=cameras,
+        cameras=create_camera_config(),
+        port=5000,
         client_factory=create_client_factory(
             clients,
         ),
