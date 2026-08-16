@@ -4,6 +4,8 @@ Real integration tests for CameraCaptureService.
 
 import os
 
+from dataclasses import replace
+
 from src.camera.services.camera_capture_service import (
     CameraCaptureService,
 )
@@ -33,12 +35,27 @@ def create_camera_service():
     )
 
 
+def create_cam01_context():
+    """Create a scan context with only CAM01 enabled."""
+
+    context = create_scan_context()
+
+    configuration = replace(
+        context.configuration,
+        enabled_cameras=(1,),
+    )
+
+    context.configuration = configuration
+
+    return context
+
+
 def test_cam01_service_initialise():
     """CAM01 service can initialise."""
 
     service = create_camera_service()
 
-    context = create_scan_context()
+    context = create_cam01_context()
 
     try:
         service.initialise(
@@ -60,7 +77,7 @@ def test_cam01_service_capture_position():
 
     service = create_camera_service()
 
-    context = create_scan_context()
+    context = create_cam01_context()
 
     try:
         service.initialise(
@@ -87,9 +104,7 @@ def test_cam01_service_capture_position():
             record.camera_poses[0]
         )
 
-        assert (
-            camera_pose.image_name
-        )
+        assert camera_pose.image_name
 
         assert (
             camera_pose.capture_successful
@@ -106,7 +121,7 @@ def test_cam01_service_multiple_captures():
 
     service = create_camera_service()
 
-    context = create_scan_context()
+    context = create_cam01_context()
 
     try:
         service.initialise(
@@ -135,13 +150,9 @@ def test_cam01_service_multiple_captures():
             == 2
         )
 
-        assert (
-            first.successful
-        )
+        assert first.successful
 
-        assert (
-            second.successful
-        )
+        assert second.successful
 
         assert (
             first.image_names[0]
