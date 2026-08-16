@@ -8,10 +8,6 @@ import json
 import socket
 import threading
 
-
-
-
-from src import logger
 from src.communication.scanner.scanner_command import (
     ScannerCommand,
 )
@@ -312,15 +308,19 @@ class ScannerServer:
 
             client_socket.close()
 
-    def _handle_request( self, message: str) -> str:
+    def _handle_request(
+        self,
+        message: str,
+    ) -> str:
         """
         Process one JSON request.
         """
+
         self._logger.info(
-                "Received JSON: %s",
-                message,
-            )
-        
+            "Received JSON: %s",
+            message,
+        )
+
         try:
 
             request_data = json.loads(
@@ -343,8 +343,8 @@ class ScannerServer:
                 "version":
                     response.version,
 
-                "status":
-                    response.status,
+                "success":
+                    response.success,
 
                 "message":
                     response.message,
@@ -360,24 +360,20 @@ class ScannerServer:
                     ":",
                 ),
             )
-            
+
             self._logger.info(
                 "Sending JSON: %s",
                 response_json,
             )
-            
-
-
 
             return response_json
-        
 
         except Exception as exception:
 
             response_data = {
                 "version": "1.0",
 
-                "status": "ERROR",
+                "success": False,
 
                 "message":
                     str(exception),
