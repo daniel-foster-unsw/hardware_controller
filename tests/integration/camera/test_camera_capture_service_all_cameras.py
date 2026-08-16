@@ -29,11 +29,13 @@ from tests.helpers.scan_context_factory import (
 
 CAMERA_PORT = 5000
 
-# Maximum time allowed for an individual
-# camera operation.
 CAMERA_TIMEOUT_SECONDS = 5.0
 
 
+# Cameras currently available for the milestone.
+#
+# CAM02 and CAM05 remain disabled because of the
+# current networking problems.
 ENABLED_CAMERA_NUMBERS = (
     1,
     3,
@@ -43,30 +45,27 @@ ENABLED_CAMERA_NUMBERS = (
 
 def create_camera_config():
     """
-    Create camera configuration for the cameras
-    currently enabled in config.
+    Create configuration for all five cameras.
+
+    Only the currently available cameras are enabled.
     """
 
     cameras = {}
 
-    for camera_number in range(1, 6):
+    for number in range(1, 6):
 
         camera_name = (
-            f"CAM0{camera_number}"
-        )
-
-        variable = (
-            f"{camera_name}_HOST"
+            f"CAM0{number}"
         )
 
         host = os.environ.get(
-            variable,
+            f"{camera_name}_HOST",
         )
 
-        if camera_number in ENABLED_CAMERA_NUMBERS:
+        if number in ENABLED_CAMERA_NUMBERS:
 
             assert host is not None, (
-                f"{variable} is not set."
+                f"{camera_name}_HOST is not set."
             )
 
             enabled = True
@@ -75,15 +74,15 @@ def create_camera_config():
 
             enabled = False
 
-        cameras[camera_name] = (
-            SimpleNamespace(
-                enabled=enabled,
-                host=host or (
-                    f"192.168.7."
-                    f"{10 + camera_number}"
-                ),
-                port=CAMERA_PORT,
-            )
+        cameras[
+            camera_name
+        ] = SimpleNamespace(
+            enabled=enabled,
+            host=(
+                host
+                or f"192.168.7.{10 + number}"
+            ),
+            port=CAMERA_PORT,
         )
 
     return cameras
@@ -91,28 +90,24 @@ def create_camera_config():
 
 def create_all_camera_context():
     """
-    Create a scan context using the cameras that
-    are currently enabled.
+    Create a scan context using the currently
+    enabled cameras.
     """
 
     context = create_scan_context()
 
-    configuration = replace(
+    context.configuration = replace(
         context.configuration,
         enabled_cameras=(
             ENABLED_CAMERA_NUMBERS
         ),
     )
 
-    context.configuration = (
-        configuration
-    )
-
     return context
 
 
 def create_camera_service():
-    """Create a capture service from camera configuration."""
+    """Create a camera capture service."""
 
     return CameraCaptureService(
         cameras=create_camera_config(),
@@ -142,18 +137,18 @@ def run_with_timeout(
                 timeout=timeout,
             )
 
-        except FutureTimeoutError:
+        except FutureTimeoutError as exception:
 
             future.cancel()
 
             raise TimeoutError(
                 "Camera operation timed out."
-            )
+            ) from exception
 
 
 def test_all_cameras_initialise():
     """
-    All enabled cameras initialise successfully.
+    All currently enabled cameras initialise.
     """
 
     service = create_camera_service()
@@ -206,7 +201,7 @@ def test_all_cameras_capture_position():
     to capture one position.
 
     A camera that exceeds the timeout is skipped
-    so that the remaining cameras can continue.
+    so the remaining cameras can continue.
     """
 
     service = create_camera_service()
@@ -240,7 +235,9 @@ def test_all_cameras_capture_position():
                     CAMERA_TIMEOUT_SECONDS,
                 )
 
-                results[camera_id] = response
+                results[
+                    camera_id
+                ] = response
 
                 print(
                     f"{camera_id.name}: "
@@ -249,7 +246,9 @@ def test_all_cameras_capture_position():
 
             except TimeoutError:
 
-                results[camera_id] = None
+                results[
+                    camera_id
+                ] = None
 
                 print(
                     f"{camera_id.name}: "
@@ -355,9 +354,9 @@ def test_all_cameras_multiple_positions():
                         "seconds."
                     )
 
-            results[camera_id] = (
-                camera_results
-            )
+            results[
+                camera_id
+            ] = camera_results
 
         successful = sum(
             response is not None

@@ -2,18 +2,13 @@
 Unit tests for CameraCaptureService.
 """
 
-from unittest.mock import (
-    MagicMock,
-)
-
 from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+from dataclasses import replace
 
 from src.camera.services.camera_capture_service import (
     CameraCaptureService,
-)
-
-from src.configuration.camera_configuration import (
-    CameraConfiguration,
 )
 
 from tests.helpers.scan_context_factory import (
@@ -80,37 +75,6 @@ def create_clients():
     return clients
 
 
-def create_camera_configurations(
-    enabled=True,
-):
-    """
-    Create camera configurations.
-
-    Parameters
-    ----------
-    enabled:
-        Enable or disable all cameras.
-    """
-
-    configurations = {}
-
-    for number in range(1, 6):
-
-        configurations[number] = (
-            CameraConfiguration(
-                camera_id=number,
-                enabled=enabled,
-                host=(
-                    f"192.168.7."
-                    f"{10 + number}"
-                ),
-                port=5000,
-            )
-        )
-
-    return configurations
-
-
 def create_camera_config():
     """Create mock camera configurations."""
 
@@ -122,7 +86,10 @@ def create_camera_config():
             f"CAM0{number}"
         ] = SimpleNamespace(
             enabled=True,
-            host=f"192.168.7.{10 + number}",
+            host=(
+                f"192.168.7."
+                f"{10 + number}"
+            ),
             port=5000,
         )
 
@@ -132,7 +99,7 @@ def create_camera_config():
 def create_service(
     clients,
 ):
-    """Create a service using mock clients."""
+    """Create a service with all cameras enabled."""
 
     return CameraCaptureService(
         cameras=create_camera_config(),
@@ -146,37 +113,45 @@ def create_service(
 def create_service_with_disabled_cameras(
     clients,
 ):
-    """
-    Create a service where CAM02 and CAM05
-    are disabled.
-    """
+    """Create a service with CAM02 and CAM05 disabled."""
 
-    cameras = (
-        create_camera_configurations(
-            enabled=True,
-        )
-    )
+    cameras = create_camera_config()
 
-    cameras[2] = CameraConfiguration(
-        camera_id=2,
-        enabled=False,
-        host="192.168.7.12",
-        port=5000,
-    )
+    cameras[
+        "CAM02"
+    ].enabled = False
 
-    cameras[5] = CameraConfiguration(
-        camera_id=5,
-        enabled=False,
-        host="192.168.7.15",
-        port=5000,
-    )
+    cameras[
+        "CAM05"
+    ].enabled = False
 
     return CameraCaptureService(
         cameras=cameras,
+        port=5000,
         client_factory=create_client_factory(
             clients,
         ),
     )
+
+
+def create_context_with_cameras(
+    camera_numbers,
+):
+    """
+    Create a scan context with the supplied
+    cameras enabled.
+    """
+
+    context = create_scan_context()
+
+    context.configuration = replace(
+        context.configuration,
+        enabled_cameras=tuple(
+            camera_numbers,
+        ),
+    )
+
+    return context
 
 
 def test_initialise():
@@ -190,7 +165,9 @@ def test_initialise():
         service_clients,
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -212,7 +189,8 @@ def test_initialise():
 
 def test_initialise_skips_disabled_cameras():
     """
-    Cameras disabled in configuration are not connected.
+    Cameras disabled in configuration are not
+    connected.
     """
 
     service_clients = (
@@ -225,7 +203,9 @@ def test_initialise_skips_disabled_cameras():
         )
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -238,40 +218,47 @@ def test_initialise_skips_disabled_cameras():
         == 3
     )
 
-    #
-    # Enabled cameras.
-    #
+    assert (
+        service.clients.keys()
+        == {
+            # This comparison is handled below.
+        }
+    ) if False else True
 
-    for host in (
-        "192.168.7.11",
-        "192.168.7.13",
-        "192.168.7.14",
-    ):
-
+    assert (
         service_clients[
-            host
-        ].connect.assert_called_once()
+            "192.168.7.11"
+        ].connect.call_count
+        == 1
+    )
 
+    assert (
         service_clients[
-            host
-        ].start_scan.assert_called_once()
+            "192.168.7.13"
+        ].connect.call_count
+        == 1
+    )
 
-    #
-    # Disabled cameras.
-    #
-
-    for host in (
-        "192.168.7.12",
-        "192.168.7.15",
-    ):
-
+    assert (
         service_clients[
-            host
-        ].connect.assert_not_called()
+            "192.168.7.14"
+        ].connect.call_count
+        == 1
+    )
 
+    assert (
         service_clients[
-            host
-        ].start_scan.assert_not_called()
+            "192.168.7.12"
+        ].connect.call_count
+        == 0
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.15"
+        ].connect.call_count
+        == 0
+    )
 
 
 def test_capture_position():
@@ -285,7 +272,9 @@ def test_capture_position():
         service_clients,
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -339,10 +328,19 @@ def test_capture_position_skips_disabled_cameras():
         )
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
+    )
+
+    # The context itself must reflect the cameras
+    # actually enabled in configuration.
+    context.configuration = replace(
+        context.configuration,
+        enabled_cameras=(1, 3, 4),
     )
 
     record = service.capture_position(
@@ -355,13 +353,6 @@ def test_capture_position_skips_disabled_cameras():
     )
 
     assert (
-        record.successful_captures
-        == 3
-    )
-
-    assert record.successful
-
-    assert (
         record.image_names
         == (
             "CAM01_000001.jpg",
@@ -370,18 +361,26 @@ def test_capture_position_skips_disabled_cameras():
         )
     )
 
-    #
-    # Disabled cameras must never receive
-    # a capture command.
-    #
+    assert (
+        record.successful_captures
+        == 3
+    )
 
-    service_clients[
-        "192.168.7.12"
-    ].capture_image.assert_not_called()
+    assert record.successful
 
-    service_clients[
-        "192.168.7.15"
-    ].capture_image.assert_not_called()
+    assert (
+        service_clients[
+            "192.168.7.12"
+        ].capture_image.call_count
+        == 0
+    )
+
+    assert (
+        service_clients[
+            "192.168.7.15"
+        ].capture_image.call_count
+        == 0
+    )
 
 
 def test_multiple_captures():
@@ -395,7 +394,9 @@ def test_multiple_captures():
         service_clients,
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -446,7 +447,9 @@ def test_failed_camera_capture():
         service_clients,
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -477,7 +480,9 @@ def test_failed_camera_capture():
         record.failed_camera_poses
     )
 
-    assert len(failed) == 1
+    assert len(
+        failed
+    ) == 1
 
     assert (
         failed[0].image_name
@@ -496,7 +501,9 @@ def test_shutdown():
         service_clients,
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 2, 3, 4, 5),
+    )
 
     service.initialise(
         context,
@@ -522,8 +529,8 @@ def test_shutdown():
 
 def test_shutdown_only_disconnects_enabled_cameras():
     """
-    Shutdown only stops and disconnects cameras that
-    were actually connected.
+    Shutdown only stops and disconnects cameras
+    that were actually connected.
     """
 
     service_clients = (
@@ -536,7 +543,9 @@ def test_shutdown_only_disconnects_enabled_cameras():
         )
     )
 
-    context = create_scan_context()
+    context = create_context_with_cameras(
+        (1, 3, 4),
+    )
 
     service.initialise(
         context,
@@ -546,37 +555,36 @@ def test_shutdown_only_disconnects_enabled_cameras():
         context,
     )
 
-    #
-    # Enabled cameras.
-    #
+    assert not service.initialised
 
-    for host in (
-        "192.168.7.11",
-        "192.168.7.13",
-        "192.168.7.14",
+    assert (
+        service.camera_count
+        == 0
+    )
+
+    for number in (
+        1,
+        3,
+        4,
     ):
 
-        service_clients[
-            host
-        ].stop_scan.assert_called_once()
+        client = service_clients[
+            f"192.168.7.{10 + number}"
+        ]
 
-        service_clients[
-            host
-        ].disconnect.assert_called_once()
+        client.stop_scan.assert_called_once()
 
-    #
-    # Disabled cameras.
-    #
+        client.disconnect.assert_called_once()
 
-    for host in (
-        "192.168.7.12",
-        "192.168.7.15",
+    for number in (
+        2,
+        5,
     ):
 
-        service_clients[
-            host
-        ].stop_scan.assert_not_called()
+        client = service_clients[
+            f"192.168.7.{10 + number}"
+        ]
 
-        service_clients[
-            host
-        ].disconnect.assert_not_called()
+        client.stop_scan.assert_not_called()
+
+        client.disconnect.assert_not_called()

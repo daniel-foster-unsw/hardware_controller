@@ -18,22 +18,24 @@ from tests.helpers.scan_context_factory import (
 )
 
 
-CAMERA_HOST = os.environ.get(
-    "CAM01_HOST",
-)
-
 CAMERA_PORT = 5000
 
 
 def create_camera_config():
     """Create the CAM01 configuration."""
 
-    assert CAMERA_HOST is not None
+    host = os.environ.get(
+        "CAM01_HOST",
+    )
+
+    assert host is not None, (
+        "CAM01_HOST is not set."
+    )
 
     return {
         "CAM01": SimpleNamespace(
             enabled=True,
-            host=CAMERA_HOST,
+            host=host,
             port=CAMERA_PORT,
         ),
     }
@@ -49,16 +51,14 @@ def create_camera_service():
 
 
 def create_cam01_context():
-    """Create a scan context with only CAM01 enabled."""
+    """Create a scan context with CAM01 enabled."""
 
     context = create_scan_context()
 
-    configuration = replace(
+    context.configuration = replace(
         context.configuration,
         enabled_cameras=(1,),
     )
-
-    context.configuration = configuration
 
     return context
 
@@ -78,7 +78,10 @@ def test_cam01_service_initialise():
 
         assert service.initialised
 
-        assert service.camera_count == 1
+        assert (
+            service.camera_count
+            == 1
+        )
 
     finally:
 
@@ -100,19 +103,33 @@ def test_cam01_service_capture_position():
             context,
         )
 
-        record = service.capture_position(
-            context,
+        record = (
+            service.capture_position(
+                context,
+            )
         )
 
         assert record is not None
 
-        assert record.capture_index == 1
+        assert (
+            record.capture_index
+            == 1
+        )
 
-        assert record.camera_count == 1
+        assert (
+            record.camera_count
+            == 1
+        )
 
-        assert record.successful_captures == 1
+        assert (
+            record.successful_captures
+            == 1
+        )
 
-        assert record.failed_captures == 0
+        assert (
+            record.failed_captures
+            == 0
+        )
 
         assert record.successful
 
